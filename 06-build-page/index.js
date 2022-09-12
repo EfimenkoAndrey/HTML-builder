@@ -81,10 +81,46 @@ async function buildCss (src) {
     })
   })
 }
+// Создание сборки html файла
+const pathFolderForHtml = path.resolve(__dirname, 'components');
+const pathTemplateHtml = path.resolve(__dirname, 'template.html');
+
+async function readAndWriteFile () {
+  let content;
+  let tags;
+  let tagsName;
+  fs.readdir(pathFolderForHtml, (err, files) => {
+    if (err) throw err;
+    const readFile = fs.createReadStream(pathTemplateHtml, 'utf-8');
+    readFile.on('data', chunk => {
+      content = chunk;
+      tags = content.match(/{{\w*}}/g);
+      tagsName = content.match(/{{\w*}}/g).join().replace(/[{}]/g, '').split(',');
+      let i = 0;
+      while (i < tagsName.length) {
+        const currentTag = tags[i];
+        let pathForRead = path.join(pathFolderForHtml, `${tagsName[i]}.html`);
+        const read = fs.createReadStream((pathForRead), 'utf-8');
+        if (files.includes(`${tagsName[i]}.html`)) {
+          read.on('data', chunk => {
+            content = content.replace(currentTag, chunk);
+            fs.writeFile(path.join(pathMainDir, 'index.html'), content, (err) => {
+              if (err) throw err;
+            })
+          })
+        }
+        i++;
+      }
+    })
+    readFile.on('end', () => console.log('Сборка выполнена!'));
+    readFile.on('error', (e) => console.log(e));
+  })
+}
 // Последовательность запуска программы
 addDir(pathMainDir)
   .then(addDir(path.join(pathMainDir, 'assets')))
   .then(copyDir())
   .then(copyFiles())
   .then(buildCss(pathDirCss))
+  .then(readAndWriteFile())
   .catch(err => console.log(err))
